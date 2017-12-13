@@ -118,7 +118,6 @@ public class MainActivity extends AppCompatActivity {
                 //friendlyMessages.add(new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null));
                 //mMessageAdapter.notifyDataSetChanged();
                 databaseReference.push().setValue(new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null));
-
                 // Clear input box
                 mMessageEditText.setText("");
             }
