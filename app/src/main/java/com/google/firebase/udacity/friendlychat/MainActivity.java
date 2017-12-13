@@ -30,6 +30,9 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String ANONYMOUS = "anonymous";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
+
+    private FirebaseDatabase firebaseDatabase;
+    private DatabaseReference databaseReference;
 
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -53,6 +59,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        firebaseDatabase = FirebaseDatabase.getInstance();
+        //get reference to the root node
+        databaseReference = firebaseDatabase.getReference().child("messages");
 
         mUsername = ANONYMOUS;
 
@@ -105,9 +115,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 // TODO: Send messages on click
-                friendlyMessages.add(new FriendlyMessage(mMessageEditText.getText().toString(), "Test", null));
-                mMessageAdapter.notifyDataSetChanged();
-
+                //friendlyMessages.add(new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null));
+                //mMessageAdapter.notifyDataSetChanged();
+                databaseReference.push().setValue(new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null));
                 // Clear input box
                 mMessageEditText.setText("");
             }
