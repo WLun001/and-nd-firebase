@@ -33,6 +33,8 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
@@ -138,46 +140,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        childEventListener = new ChildEventListener() {
-            @Override
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                //deserialised object
-                FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
-                mMessageAdapter.add(friendlyMessage);
-
-            }
-
-            @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-
-            }
-
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        };
-
         authStateListener = new FirebaseAuth.AuthStateListener() {
             @Override
             public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
                 FirebaseUser user = firebaseAuth.getCurrentUser();
-                if(user != null){
+                if (user != null) {
                     //if user signed in
                     Toast.makeText(MainActivity.this, "Welcome back!", Toast.LENGTH_SHORT).show();
+                    onSignedInIntialise(user.getDisplayName());
 
-                } else{
+                } else {
                     // if user signed out
+                    onSignedOutCleanUp();
                     startActivityForResult(
                             AuthUI.getInstance()
                                     .createSignInIntentBuilder()
@@ -191,7 +165,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        databaseReference.addChildEventListener(childEventListener);
     }
 
     @Override
@@ -203,6 +176,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        int menulist = item.getItemId();
+        if(menulist == R.id.sign_out_menu){
+            AuthUI.getInstance()
+                    .signOut(this)
+                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                        public void onComplete(@NonNull Task<Void> task) {
+                            mMessageAdapter.clear();
+
+                            //detach the listener
+                            detachDatabaseReadListener();
+                        }
+                    });
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -215,6 +201,72 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        firebaseAuth.removeAuthStateListener(authStateListener);
+        if(authStateListener != null) {
+            firebaseAuth.removeAuthStateListener(authStateListener);
+        }
+        mMessageAdapter.clear();
+
+        //detach the listener
+        detachDatabaseReadListener();
+    }
+
+    private void onSignedInIntialise(String username){
+        mUsername = username;
+
+        //attach listener when the user is authenticated
+        attachDatabaseReadListener();
+    }
+
+    private void onSignedOutCleanUp(){
+        mUsername = ANONYMOUS;
+        //clear the message and avoid duplicate when signed in multiple times
+        mMessageAdapter.clear();
+
+        //detach the listener
+        detachDatabaseReadListener();
+
+    }
+
+    private void attachDatabaseReadListener(){
+        if(childEventListener == null) {
+            childEventListener = new ChildEventListener() {
+                @Override
+                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                    //deserialised object
+                    FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
+                    mMessageAdapter.add(friendlyMessage);
+
+                }
+
+                @Override
+                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                }
+
+                @Override
+                public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+                }
+
+                @Override
+                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            };
+            databaseReference.addChildEventListener(childEventListener);
+        }
+    }
+
+    private void detachDatabaseReadListener() {
+        if (childEventListener != null) {
+            databaseReference.removeEventListener(childEventListener);
+            childEventListener = null;
+        }
+
     }
 }
