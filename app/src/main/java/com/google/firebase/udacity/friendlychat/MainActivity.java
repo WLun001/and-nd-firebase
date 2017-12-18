@@ -15,6 +15,7 @@
  */
 package com.google.firebase.udacity.friendlychat;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -146,7 +147,6 @@ public class MainActivity extends AppCompatActivity {
                 FirebaseUser user = firebaseAuth.getCurrentUser();
                 if (user != null) {
                     //if user signed in
-                    Toast.makeText(MainActivity.this, "Welcome back!", Toast.LENGTH_SHORT).show();
                     onSignedInIntialise(user.getDisplayName());
 
                 } else {
@@ -165,6 +165,19 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode == RC_SIGN_IN){
+            if(resultCode == RESULT_FIRST_USER){
+                Toast.makeText(this, "Welcoem Back!", Toast.LENGTH_SHORT).show();
+            } else if(resultCode == RESULT_CANCELED){
+                Toast.makeText(this, "Until Next Time!", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
     }
 
     @Override
