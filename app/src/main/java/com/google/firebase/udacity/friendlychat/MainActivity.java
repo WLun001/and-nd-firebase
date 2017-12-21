@@ -16,6 +16,7 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -35,6 +36,8 @@ import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -43,6 +46,9 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,11 +63,18 @@ public class MainActivity extends AppCompatActivity {
     public static final int RC_SIGN_IN = 1;
     private static final int RC_PHOTO_PICKER =  2;
 
+    //Realtime database
     private FirebaseDatabase firebaseDatabase;
     private DatabaseReference databaseReference;
     private ChildEventListener childEventListener;
+
+    //Auth
     private FirebaseAuth firebaseAuth;
     private FirebaseAuth.AuthStateListener authStateListener;
+
+    //Storage
+    private FirebaseStorage firebaseStorage;
+    private StorageReference storageReference;
 
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -79,8 +92,11 @@ public class MainActivity extends AppCompatActivity {
 
         firebaseDatabase = FirebaseDatabase.getInstance();
         firebaseAuth = FirebaseAuth.getInstance();
+        firebaseStorage = FirebaseStorage.getInstance();
         //get reference to the root node
         databaseReference = firebaseDatabase.getReference().child("messages");
+        //get reference to the folder
+        storageReference = firebaseStorage.getReference().child("chat_photos");
 
         mUsername = ANONYMOUS;
 
@@ -173,13 +189,37 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode == RC_SIGN_IN){
-            if(resultCode == RESULT_FIRST_USER){
+        switch(requestCode){
+            case RC_SIGN_IN:
+            if(resultCode == RESULT_OK){
                 Toast.makeText(this, "Welcoem Back!", Toast.LENGTH_SHORT).show();
             } else if(resultCode == RESULT_CANCELED){
                 Toast.makeText(this, "Until Next Time!", Toast.LENGTH_SHORT).show();
                 finish();
             }
+            break;
+
+            case RC_PHOTO_PICKER:
+                if (resultCode == RESULT_OK) {
+                    Uri imageUri = data.getData();
+                    StorageReference storageRef = storageReference.child(imageUri.getLastPathSegment());
+                    UploadTask uploadTask = storageRef.putFile(imageUri);
+                    uploadTask.addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                            //get image url and storage to database
+                            Uri downloadUrl = taskSnapshot.getDownloadUrl();
+                            FriendlyMessage friendlyMessage = new FriendlyMessage(null, mUsername, downloadUrl.toString());
+                            databaseReference.push().setValue(friendlyMessage);
+
+                        }
+                    }).addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+
+                        }
+                    });
+                }
         }
     }
 
