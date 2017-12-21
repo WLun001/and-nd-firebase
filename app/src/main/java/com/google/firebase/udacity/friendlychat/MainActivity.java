@@ -23,6 +23,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -46,13 +47,17 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String ANONYMOUS = "anonymous";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
+    public static final String FRIENDLY_MSG_LENGTH = "friendly_msg_length";
     public static final int RC_SIGN_IN = 1;
     private static final int RC_PHOTO_PICKER =  2;
 
@@ -75,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
     //Storage
     private FirebaseStorage firebaseStorage;
     private StorageReference storageReference;
+
+    //RemoteConfnig
+    private FirebaseRemoteConfig remoteConfig;
 
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -97,6 +106,8 @@ public class MainActivity extends AppCompatActivity {
         databaseReference = firebaseDatabase.getReference().child("messages");
         //get reference to the folder
         storageReference = firebaseStorage.getReference().child("chat_photos");
+
+        remoteConfig = FirebaseRemoteConfig.getInstance();
 
         mUsername = ANONYMOUS;
 
@@ -183,6 +194,21 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+
+        // Create Remote Config Setting to enable developer mode.
+        // Fetching configs from the server is normally limited to 5 requests per hour.
+        // Enabling developer mode allows many more requests to be made per hour, so developers
+        // can test different config values during development.
+        FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder()
+                .setDeveloperModeEnabled(BuildConfig.DEBUG)
+                .build();
+        remoteConfig.setConfigSettings(configSettings);
+
+        Map<String, Object> defaultConfig = new HashMap<>();
+        defaultConfig.put(FRIENDLY_MSG_LENGTH, DEFAULT_MSG_LENGTH_LIMIT);
+        remoteConfig.setDefaults(defaultConfig);
+        //fetch value from the server to see if any changes
+        fetchConfig();
 
     }
 
@@ -324,5 +350,35 @@ public class MainActivity extends AppCompatActivity {
             childEventListener = null;
         }
 
+    }
+
+    private void fetchConfig(){
+        long cacheExpiration = 3600;
+
+        // if developer enable, no expiration
+        if(remoteConfig.getInfo().getConfigSettings().isDeveloperModeEnabled()){
+            cacheExpiration = 0;
+        }
+        remoteConfig.fetch(cacheExpiration)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        remoteConfig.activateFetched();
+                        applyRetrievedLengthLimit();
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.w(TAG, "Error fetching config" + e);
+                        applyRetrievedLengthLimit();
+                    }
+                });
+    }
+
+    public void applyRetrievedLengthLimit(){
+        Long friendly_msg_legth = remoteConfig.getLong(FRIENDLY_MSG_LENGTH);
+        mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(friendly_msg_legth.intValue())});
+        Log.d(TAG, FRIENDLY_MSG_LENGTH + "=" +  friendly_msg_legth);
     }
 }
