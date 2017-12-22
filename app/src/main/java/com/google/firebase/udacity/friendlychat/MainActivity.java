@@ -15,6 +15,7 @@
  */
 package com.google.firebase.udacity.friendlychat;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -31,11 +32,16 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.firebase.ui.auth.AuthUI;
+import com.firebase.ui.database.FirebaseListAdapter;
+import com.firebase.ui.database.FirebaseListOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -47,6 +53,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 import com.google.firebase.storage.FirebaseStorage;
@@ -58,6 +65,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.security.AccessController.getContext;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -119,9 +128,44 @@ public class MainActivity extends AppCompatActivity {
         mSendButton = (Button) findViewById(R.id.sendButton);
 
         // Initialize message ListView and its adapter
-        final List<FriendlyMessage> friendlyMessages = new ArrayList<>();
+        /*final List<FriendlyMessage> friendlyMessages = new ArrayList<>();
         mMessageAdapter = new MessageAdapter(this, R.layout.item_message, friendlyMessages);
-        mMessageListView.setAdapter(mMessageAdapter);
+        mMessageListView.setAdapter(mMessageAdapter);*/
+
+        Query query = databaseReference;
+
+        FirebaseListOptions<FriendlyMessage> options = new FirebaseListOptions.Builder<FriendlyMessage>()
+                .setQuery(query, FriendlyMessage.class)
+                .setLifecycleOwner(this) //add this to prevent black listview
+                .setLayout(R.layout.item_message)
+                .build();
+
+        FirebaseListAdapter<FriendlyMessage> adapter = new FirebaseListAdapter<FriendlyMessage>(options) {
+            @Override
+            protected void populateView(View v, FriendlyMessage model, int position) {
+                ImageView photoImageView = (ImageView) v.findViewById(R.id.photoImageView);
+                TextView messageTextView = (TextView) v.findViewById(R.id.messageTextView);
+                TextView authorTextView = (TextView) v.findViewById(R.id.nameTextView);
+
+                FriendlyMessage message = getItem(position);
+
+                boolean isPhoto = message.getPhotoUrl() != null;
+                if (isPhoto) {
+                    messageTextView.setVisibility(View.GONE);
+                    photoImageView.setVisibility(View.VISIBLE);
+                    Glide.with(photoImageView.getContext())
+                            .load(message.getPhotoUrl())
+                            .into(photoImageView);
+                } else {
+                    messageTextView.setVisibility(View.VISIBLE);
+                    photoImageView.setVisibility(View.GONE);
+                    messageTextView.setText(message.getText());
+                }
+                authorTextView.setText(message.getName());
+
+            }
+        };
+        mMessageListView.setAdapter(adapter);
 
         // Initialize progress bar
         mProgressBar.setVisibility(ProgressBar.INVISIBLE);
@@ -267,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
                             mMessageAdapter.clear();
 
                             //detach the listener
-                            detachDatabaseReadListener();
+//                            detachDatabaseReadListener();
                         }
                     });
         }
@@ -289,14 +333,14 @@ public class MainActivity extends AppCompatActivity {
         mMessageAdapter.clear();
 
         //detach the listener
-        detachDatabaseReadListener();
+//        detachDatabaseReadListener();
     }
 
     private void onSignedInIntialise(String username){
         mUsername = username;
 
         //attach listener when the user is authenticated
-        attachDatabaseReadListener();
+//        attachDatabaseReadListener();
     }
 
     private void onSignedOutCleanUp(){
@@ -305,11 +349,11 @@ public class MainActivity extends AppCompatActivity {
         mMessageAdapter.clear();
 
         //detach the listener
-        detachDatabaseReadListener();
+//        detachDatabaseReadListener();
 
     }
 
-    private void attachDatabaseReadListener(){
+   /* private void attachDatabaseReadListener(){
         if(childEventListener == null) {
             childEventListener = new ChildEventListener() {
                 @Override
@@ -350,7 +394,7 @@ public class MainActivity extends AppCompatActivity {
             childEventListener = null;
         }
 
-    }
+    }*/
 
     private void fetchConfig(){
         long cacheExpiration = 3600;
